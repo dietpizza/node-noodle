@@ -2,8 +2,8 @@ import { Response } from 'node-fetch';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 
-// import { PartRange } from './interfaces';
-import { abortableFetch, AbortableFetch } from './util/abortableFetch';
+import { adorableFetch, AdorableFetch } from './util/adorableFetch';
+import { logger } from './util/logger';
 
 process.title = 'fetchloader';
 
@@ -26,50 +26,71 @@ export interface Part {
 }
 
 let fileSize: number = 0;
-let request: AbortableFetch;
+let request: AdorableFetch;
 let writeStream: fs.WriteStream;
 let startOptions: PartOptions;
+
+const log: Function = logger(__filename);
 
 const event: EventEmitter = new EventEmitter();
 
 function download(options: PartOptions): void {
-  writeStream = fs.createWriteStream(options.path, {
-    flags: 'a+',
-  });
+  const { start, end } = options.range;
 
-  function handleSuccess(res: Response) {
-    res.body.on('data', (data: Buffer) => {
-      fileSize += data.length;
-      event.emit('data', fileSize);
-    });
-    if (res.status === 200 || res.status === 206) res.body.pipe(writeStream);
+  // Handle response stream  events
+  function onStreamError(err: Error) {
+    // if (err.name !== 'AbortError') event.emit('error', err);
+    log(err.name);
+  }
+  function onStreamData(data: Buffer) {
+    fileSize += data.length;
+    event.emit('data', fileSize);
+    log(data.length);
+  }
+  function onStreamEnd() {
+    event.emit('done');
+    log('Stream ended.');
   }
 
-  function handleError(error: Error) {
-    if (error.name !== 'AbortError') {
-      console.log(error.name);
+  // Handle fetch request
+  function fetchSuccess(res: Response) {
+    res.body.on('error', onStreamError);
+    res.body.on('data', onStreamData);
+    res.body.on('end', onStreamEnd);
+
+    if (res.status === 200 || res.status === 206) res.body.pipe(writeStream);
+  }
+  function fetchError(err: Error) {
+    if (err.name !== 'AbortError') {
       writeStream.close();
+      event.emit('error', err);
     }
   }
 
-  request = abortableFetch(options.url, {
+  writeStream = fs.createWriteStream(options.path, {
+    flags: 'a+',
+  });
+  request = adorableFetch(options.url, {
     headers: {
       ...options.headers,
-      Range: `bytes=${options.range.start}-${options.range.end}`,
+      Range: `bytes=${start}-${end}`,
     },
   });
-  request.ready.then(handleSuccess).catch(handleError);
+
+  request.ready.then(fetchSuccess).catch(fetchError);
 }
 
 export function downloadPart(options: PartOptions): Part {
+  const { start, end } = options.range;
   startOptions = options;
+
   if (fs.existsSync(options.path)) {
     fileSize = fs.statSync(options.path).size;
-    const start = options.range.start + fileSize - 1;
+    const begin = start + fileSize;
 
-    if (start === options.range.end) event.emit('done');
-    else if (start > options.range.end) fs.truncateSync(options.path);
-    else options.range.start = start;
+    if (begin === end + 1) event.emit('done');
+    else if (begin > end + 1) fs.truncateSync(options.path);
+    else options.range.start = begin;
   }
 
   download(options);
