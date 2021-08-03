@@ -2,4 +2,6 @@ node_modules
 
 dist
 
-src/test.ts
+test.js
+
+**/tsconfig.tsbuildinfo
