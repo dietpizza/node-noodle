@@ -6,12 +6,13 @@ export interface RequestMetadata {
   readonly contentLength: number;
 }
 
-const errorArray = ['ECONNRESET', 'ENOTFOUND'];
+const errorArray: Array<string> = ['ECONNRESET', 'ENOTFOUND'];
+const TIMEOUT: number = 5000;
 
 export async function getMetadata(url: string, headers?: object): Promise<RequestMetadata> {
   let res: Response;
   try {
-    res = await fetch(url, { method: 'HEAD', headers: { ...headers }, timeout: 5000 });
+    res = await fetch(url, { method: 'HEAD', headers: { ...headers }, timeout: TIMEOUT });
     return {
       acceptRanges: res.headers.get('accept-ranges') === 'bytes',
       contentLength: parseInt(res.headers.get('content-length')),
@@ -31,14 +32,14 @@ export async function getMetadata(url: string, headers?: object): Promise<Reques
 async function fakeHead(url: string, headers?: object): Promise<RequestMetadata> {
   let metadata: RequestMetadata;
   const request: Neofetch = neofetch(url, {
-    headers: { ...headers, Range: 'bytes=0-500' },
-    timeout: 1000,
+    headers: { ...headers, Range: 'bytes=0-99' },
+    timeout: TIMEOUT,
   });
 
   try {
     const res: Response = await request.ready;
     res.body.on('data', (data: Buffer) => {
-      if (data.length > 501) request.abort();
+      if (data.length > 100) request.abort();
     });
     metadata = {
       acceptRanges: true,
