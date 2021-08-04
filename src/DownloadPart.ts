@@ -3,7 +3,6 @@ import { Response } from 'node-fetch';
 import { EventEmitter } from 'eventemitter3';
 
 import { neofetch, Neofetch } from './util/neofetch';
-import { logger } from './util/logger';
 
 export interface PartRange {
   start: number;
@@ -16,8 +15,6 @@ export interface PartOptions {
   range: PartRange;
   headers?: object;
 }
-
-const log: Function = logger(__filename);
 
 export class DownloadPart extends EventEmitter {
   private fileSize: number = 0;
@@ -48,8 +45,7 @@ export class DownloadPart extends EventEmitter {
       this.download(options);
     } else {
       setImmediate(() => {
-        this.emit('end');
-        log('File already complete');
+        this.emit('done');
       });
     }
   }
@@ -59,18 +55,18 @@ export class DownloadPart extends EventEmitter {
 
     // Handle response stream  events
     const onStreamError = (err: Error) => {
-      log(err.name);
+      this.emit('error', err);
     };
     const onStreamData = (data: Buffer) => {
       this.fileSize += data.length;
-      log(this.fileSize);
-      process.nextTick(() => {
+      setImmediate(() => {
         this.emit('data', this.fileSize);
       });
     };
     const onStreamEnd = () => {
-      this.emit('done');
-      log('Stream ended.');
+      setTimeout(() => {
+        this.emit('done');
+      }, 100);
     };
 
     // Handle fetch request
