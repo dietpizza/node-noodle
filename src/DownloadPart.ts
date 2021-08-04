@@ -27,10 +27,11 @@ export class DownloadPart extends EventEmitter {
 
   constructor(options: PartOptions) {
     super();
+    this.startOptions = options;
+
     const { start, end } = options.range;
     let flag: boolean = true;
 
-    this.startOptions = options;
     if (fs.existsSync(options.path)) {
       this.fileSize = fs.statSync(options.path).size;
       const begin: number = start + this.fileSize;
@@ -62,8 +63,10 @@ export class DownloadPart extends EventEmitter {
     };
     const onStreamData = (data: Buffer) => {
       this.fileSize += data.length;
-      this.emit('data', this.fileSize);
       log(this.fileSize);
+      process.nextTick(() => {
+        this.emit('data', this.fileSize);
+      });
     };
     const onStreamEnd = () => {
       this.emit('done');
