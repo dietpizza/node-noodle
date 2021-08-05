@@ -54,9 +54,6 @@ export class DownloadPart extends EventEmitter {
     const { start, end } = options.range;
 
     // Handle response stream  events
-    const onStreamError = (err: Error) => {
-      this.emit('error', err);
-    };
     const onStreamData = (data: Buffer) => {
       this.fileSize += data.length;
       setImmediate(() => {
@@ -68,19 +65,21 @@ export class DownloadPart extends EventEmitter {
         this.emit('done');
       }, 100);
     };
+    const onError = (err: Error) => {
+      if (err.name !== 'AbortError') {
+        setImmediate(() => {
+          this.emit('error', err);
+        });
+      }
+      this.writeStream.close();
+    };
 
     // Handle fetch request
     const fetchSuccess = (res: Response) => {
-      res.body.on('error', onStreamError);
+      res.body.on('error', onError);
       res.body.on('data', onStreamData);
       res.body.on('end', onStreamEnd);
       if (res.status === 200 || res.status === 206) res.body.pipe(this.writeStream);
-    };
-    const fetchError = (err: Error) => {
-      if (err.name !== 'AbortError') {
-        this.emit('error', err);
-      }
-      this.writeStream.close();
     };
 
     this.writeStream = fs.createWriteStream(options.path, {
@@ -93,7 +92,7 @@ export class DownloadPart extends EventEmitter {
       },
     });
 
-    this.request.ready.then(fetchSuccess).catch(fetchError);
+    this.request.ready.then(fetchSuccess).catch(onError);
   }
 
   public pause() {

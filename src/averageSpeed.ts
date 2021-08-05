@@ -1,31 +1,26 @@
-let speedArray: Array<number> = [];
-let prevSize: number;
-let prevTime: number;
-let sampleCount: number = 8;
+let samples: Array<number> = [];
+let pSize: number;
+let pTime: number;
+let sampleSize: number = 8;
 
 export function getAvgSpeed(completed: number) {
   const time: number = Date.now();
   let speed: number = 0;
 
-  if (prevTime !== 0 && prevSize !== 0) {
-    const deltaT = (time - prevTime) / 1000;
-    const deltaC = completed - prevSize;
+  if (pTime !== 0 && pSize !== 0) {
+    const deltaT = (time - pTime) / 1000;
+    const deltaC = completed - pSize;
     speed = deltaC / deltaT;
   }
 
-  if (speed !== Infinity && speed >= 0) {
-    speedArray.push(speed);
-  }
+  if (speed !== Infinity && speed >= 0) samples.push(speed);
 
-  if (speedArray.length > 1) {
-    speed = speedArray.reduce((s, a) => s + a) / speedArray.length;
-  }
+  if (samples.length > 1) speed = samples.reduce((s, a) => s + a) / samples.length;
 
-  prevTime = time;
-  prevSize = completed;
+  pTime = time;
+  pSize = completed;
 
-  if (speedArray.length > sampleCount) {
-    speedArray.shift();
-  }
+  if (samples.length > sampleSize) samples.shift();
+
   return speed;
 }

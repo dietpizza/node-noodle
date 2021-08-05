@@ -10,9 +10,7 @@ export class FileSegmentation {
       const sum: number = sizes.reduce((accumulator, currentValue) => {
         return accumulator + currentValue;
       }, 0);
-
       const range: PartRange = { start: startRange, end: sum - 1 };
-
       startRange = sum;
 
       return range;
