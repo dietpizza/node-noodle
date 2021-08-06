@@ -20,11 +20,11 @@ export class DownloadPart extends EventEmitter {
   private fileSize: number = 0;
   private request: Neofetch;
   private writeStream: fs.WriteStream;
-  private startOptions: PartOptions;
+  private options: PartOptions;
 
   constructor(options: PartOptions) {
     super();
-    this.startOptions = options;
+    this.options = options;
 
     const { start, end } = options.range;
     let flag: boolean = true;
@@ -99,10 +99,7 @@ export class DownloadPart extends EventEmitter {
     this.request.abort();
   }
   public resume() {
-    this.startOptions.range = {
-      start: this.fileSize,
-      end: this.startOptions.range.end,
-    };
-    this.download(this.startOptions);
+    this.options.range.start += this.fileSize;
+    this.download(this.options);
   }
 }
