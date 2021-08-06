@@ -1,13 +1,12 @@
 import fs from 'fs';
 import { pipeline } from 'stream/promises';
 
-export async function mergeFiles(partFiles: Array<string>, outpath: string): Promise<boolean> {
-  if (fs.existsSync(outpath)) {
-    outpath = outpath + '_';
-  }
+export async function mergeFiles(partFiles: Array<string>, filepath: string): Promise<boolean> {
+  const safepath = getSafePath(filepath, Infinity);
+
   if (partFiles.length === 1) {
     try {
-      fs.renameSync(partFiles[0], outpath);
+      fs.renameSync(partFiles[0], safepath);
       return true;
     } catch (err) {
       return false;
@@ -15,12 +14,21 @@ export async function mergeFiles(partFiles: Array<string>, outpath: string): Pro
   } else {
     for (const path of partFiles) {
       try {
-        await pipeline(fs.createReadStream(path), fs.createWriteStream(outpath, { flags: 'a+' }));
+        await pipeline(fs.createReadStream(path), fs.createWriteStream(safepath, { flags: 'a+' }));
       } catch (err) {
-        console.log(err.name);
         return false;
       }
     }
     return true;
   }
+}
+
+function getSafePath(path: string, maxTry: number): string {
+  let tPath: string = path;
+
+  for (let i = 0; i < maxTry; i++) {
+    if (!fs.existsSync(tPath)) return tPath;
+    tPath = path + '_' + (i === 0 ? '' : i - 1);
+  }
+  return path;
 }

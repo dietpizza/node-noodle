@@ -1,51 +1,31 @@
 import fs from 'fs';
 import validFilename from 'valid-filename';
-import validator from 'validator';
 
 import { Options } from '../DownloadFile';
-import { RequestMetadata } from '../requestQuery';
 
-export function validateInputs(options: Options): Error {
-  if (!isUrl(options.url)) return new Error('Invalid URL provided');
+export function validateInputs(options: Options): string {
+  if (!isURL(options.url)) return 'Invalid URL';
+  if (options.numOfConnections > 0) return 'Invalid number of threads';
+  if (!isDir(options.saveDirectory)) return 'Invalid directory path';
+  if (validFilename(options.fileName)) return 'Invalid file name';
 
-  if (!isValidNumberOfConnections(options.numOfConnections))
-    return new Error('Invalid number of connections provided');
-
-  if (options.saveDirectory && !isDirectory(options.saveDirectory))
-    return new Error('Invalid save directory provided');
-
-  if (options.fileName && !isValidFileName(options.fileName))
-    return new Error('Invalid file name provided');
-
-  return null;
+  return 'OK';
 }
 
-export function validateMetadata(url: string, metadata: RequestMetadata): Error {
-  if (isNaN(metadata.contentLength)) return new Error(`Failed to query Content-Length of ${url}`);
-
-  return null;
-}
-
-function isUrl(url: string): boolean {
-  return validator.isURL(url);
-}
-
-function isValidNumberOfConnections(numOfConnections: number): boolean {
-  return numOfConnections > 0;
-}
-
-function isDirectory(directory: string): boolean {
-  let isDirectory: boolean;
+function isDir(directory: string): boolean {
   try {
     const stat: fs.Stats = fs.lstatSync(directory);
-    isDirectory = stat.isDirectory();
+    return stat.isDirectory();
   } catch (err) {
-    isDirectory = false;
+    return false;
   }
-
-  return isDirectory;
 }
 
-function isValidFileName(fileName: string): boolean {
-  return validFilename(fileName);
+function isURL(location: string) {
+  try {
+    const url = new URL(location);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
 }
