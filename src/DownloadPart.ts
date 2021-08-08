@@ -5,8 +5,8 @@ import { EventEmitter } from 'eventemitter3';
 import { neofetch, Neofetch } from './util/neofetch';
 
 export interface PartRange {
-  start: number;
-  end: number;
+  readonly start: number;
+  readonly end: number;
 }
 
 export interface PartOptions {
@@ -25,39 +25,37 @@ export class DownloadPart extends EventEmitter {
 
   constructor(options: PartOptions) {
     super();
-    const { start, end } = options.range;
-    let flag: boolean = true;
+    this.download(options);
+  }
 
+  private getRange(options: PartOptions): PartRange {
     this.options = options;
-    this.totalSize = end + 1 - start;
+    this.totalSize = options.range.end + 1 - options.range.start;
     if (fs.existsSync(options.path)) {
+      const { start, end } = options.range;
+
       this.fileSize = fs.statSync(options.path).size;
-      const begin: number = start + this.fileSize;
-      if (begin === end + 1) {
-        flag = false;
-      } else if (begin > end + 1) {
+      if (this.fileSize === this.totalSize) {
+        return undefined;
+      } else if (this.fileSize > this.totalSize) {
         fs.truncateSync(options.path);
+        this.fileSize = 0;
       } else {
-        options.range.start = begin;
+        const range: PartRange = { start: this.fileSize + start, end };
+        return range;
       }
     }
-
-    if (flag) this.download(options);
-    else setImmediate(() => this.emit('done'));
+    return options.range;
   }
 
   private download(options: PartOptions): void {
-    const { start, end } = options.range;
-    let downloaded = 0;
-    // Handle response stream  events
-    const onStreamData = (data: Buffer) => {
-      downloaded += data.length;
+    const onStreamData = (length: number) => {
+      downloaded += length;
       setImmediate(() => this.emit('data', this.fileSize + downloaded));
     };
     const onStreamEnd = () => {
       setTimeout(() => {
         if (this.fileSize + downloaded === this.totalSize) this.emit('done');
-        else this.emit('retry', this.fileSize);
       }, 100);
     };
     const onError = (err: Error) => {
@@ -70,34 +68,44 @@ export class DownloadPart extends EventEmitter {
     };
 
     // Handle fetch request
+    const successCodes = [200, 206];
     const fetchSuccess = (res: Response) => {
       res.body.on('error', onError);
-      res.body.on('data', onStreamData);
+      res.body.on('data', (data: Buffer) => {
+        if (successCodes.includes(res.status)) onStreamData(data.length);
+      });
       res.body.on('end', onStreamEnd);
-      if (res.status === 200 || res.status === 206) res.body.pipe(this.writeStream);
+      if (successCodes.includes(res.status)) res.body.pipe(this.writeStream);
       else if (res.status === 503) {
+        console.log(this.fileSize);
         setImmediate(() => this.emit('retry', this.fileSize));
       }
     };
 
-    this.writeStream = fs.createWriteStream(options.path, {
-      flags: 'a+',
-    });
-    this.request = neofetch(options.url, {
-      headers: {
-        ...options.headers,
-        Range: `bytes=${start}-${end}`,
-      },
-    });
+    let downloaded = 0;
+    const range: PartRange = this.getRange(options);
 
-    this.request.ready.then(fetchSuccess).catch(onError);
+    if (range !== undefined) {
+      const { start, end } = range;
+      this.writeStream = fs.createWriteStream(options.path, {
+        flags: 'a+',
+      });
+      this.request = neofetch(options.url, {
+        headers: {
+          ...options.headers,
+          Range: `bytes=${start}-${end}`,
+        },
+      });
+      this.request.ready.then(fetchSuccess).catch(onError);
+    } else {
+      setImmediate(() => this.emit('done'));
+    }
   }
 
   public pause() {
     this.request.abort();
   }
   public resume() {
-    this.options.range.start += this.fileSize;
     this.download(this.options);
   }
 }

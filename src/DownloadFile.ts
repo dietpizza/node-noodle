@@ -46,10 +46,11 @@ export interface DownloadInfo {
 }
 
 export class DownloadFile extends EventEmitter {
+  private connect: boolean = true;
   private readonly SINGLE_CONNECTION: number = 1;
   private THROTTLE_RATE: number = 100;
   private retryQueue: number[] = [];
-  private metafile: string;
+  // private metafile: string;
   private filepath: string;
   private info: DownloadInfo;
   private options: Options;
@@ -59,46 +60,47 @@ export class DownloadFile extends EventEmitter {
     super();
     this.options = options;
     this.THROTTLE_RATE = options.throttleRate || this.THROTTLE_RATE;
+    this.ping(options);
+  }
 
+  private ping(options: Options) {
+    options.fileName = options.fileName ? options.fileName : getFilename(options.url);
     getMetadata(options.url, options.headers).then((metadata: RequestMetadata) => {
       if (!isNaN(metadata.contentLength)) {
         const valid: string = validateInputs(options);
 
         if (!metadata.acceptRanges) this.options.threads = this.SINGLE_CONNECTION;
 
-        if (valid !== 'OK') {
-          setImmediate(() => this.emit('error', valid));
-        } else this.init(metadata, options);
+        if (valid === 'OK') {
+          this.init(metadata, options);
+        } else setImmediate(() => this.emit('error', valid));
+      } else {
+        setImmediate(() => this.emit('error', 'Failed to get link'));
+        this.connect = false;
       }
     });
   }
 
   private init(metadata: RequestMetadata, options: Options) {
-    const filename = options.fileName ? options.fileName : getFilename(options.url);
+    this.filepath = join(options.dir, options.fileName);
+    // this.metafile = this.filepath + '.json';
 
-    this.filepath = join(options.dir, filename);
-    this.metafile = this.filepath + '.json';
-
-    if (fs.existsSync(this.metafile))
-      this.info = JSON.parse(fs.readFileSync(this.metafile, { encoding: 'utf8' }));
-    else {
-      this.info = {
-        url: options.url,
-        dir: options.dir,
-        progress: 0,
-        filename,
-        size: metadata.contentLength,
-        status: Status.WAITING,
-        speed: 0,
-        threads: options.threads,
-        downloaded: 0,
-        tPositions: Array(options.threads).fill(0),
-        partRanges: getPartRanges(metadata.contentLength, options.threads),
-        partFiles: Array(options.threads)
-          .fill(this.filepath)
-          .map((f: string, i: number) => f + '.' + i),
-      };
-    }
+    this.info = {
+      url: options.url,
+      dir: options.dir,
+      progress: 0,
+      filename: options.fileName,
+      size: metadata.contentLength,
+      status: Status.WAITING,
+      speed: 0,
+      threads: options.threads,
+      downloaded: 0,
+      tPositions: Array(options.threads).fill(0),
+      partRanges: getPartRanges(metadata.contentLength, options.threads),
+      partFiles: Array(options.threads)
+        .fill(this.filepath)
+        .map((f: string, i: number) => f + '.' + i),
+    };
   }
 
   public start() {
@@ -107,9 +109,11 @@ export class DownloadFile extends EventEmitter {
         clearInterval(checkExist);
         this.start_t();
       }
-    }, 10);
+      if (!this.connect) clearInterval(checkExist);
+    }, 50);
     return this;
   }
+
   private start_t() {
     let done: number = 0;
     // let removed: number = 0;
@@ -121,11 +125,6 @@ export class DownloadFile extends EventEmitter {
       this.info.progress = (this.info.downloaded / this.info.size) * 100;
 
       setImmediate(() => this.emit('data', this.info));
-
-      fsp.writeFile(this.metafile, JSON.stringify(this.info, null, 4), {
-        flag: 'w+',
-        encoding: 'utf8',
-      });
     };
     const update_t = throttle(update, this.THROTTLE_RATE);
 
@@ -136,14 +135,16 @@ export class DownloadFile extends EventEmitter {
         setImmediate(() => this.emit('done'));
       } else setImmediate(() => this.emit('error', 'Could not merge part files'));
 
-      // deleteFiles(this.info.partFiles, this.metafile).then((gag: boolean) => {
-      // if (!gag) setImmediate(() => this.emit('error', 'Could not delete part files'));
-      // });
+      deleteFiles(this.info.partFiles).then((gag: boolean) => {
+        if (!gag) setImmediate(() => this.emit('error', 'Could not delete part files'));
+      });
     };
 
     const onDone = () => {
       if (this.retryQueue.length > 0)
-        setTimeout(() => this.parts[this.retryQueue.shift()].resume(), this.THROTTLE_RATE);
+        setTimeout(() => {
+          this.parts[this.retryQueue.shift()].resume();
+        }, this.THROTTLE_RATE);
 
       if (++done === this.info.threads) {
         this.info.status = Status.BUILDING;
@@ -159,8 +160,8 @@ export class DownloadFile extends EventEmitter {
         range,
         headers: this.options.headers,
       };
-
       return new DownloadPart(options)
+        .on('error', (err) => setImmediate(() => this.emit('error', err)))
 
         .on('data', (length: number) => {
           this.info.tPositions[index] = length;
@@ -168,13 +169,12 @@ export class DownloadFile extends EventEmitter {
         })
 
         .on('retry', (size: number) => {
+          console.log(size);
           this.info.tPositions[index] = size;
           this.retryQueue.push(index);
         })
 
-        .on('done', onDone)
-
-        .on('error', (err) => setImmediate(() => this.emit('error', err)));
+        .on('done', onDone);
     };
 
     this.parts = this.info.partRanges.map(mapParts);

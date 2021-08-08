@@ -3,7 +3,6 @@ import { pipeline } from 'stream/promises';
 
 export async function mergeFiles(partFiles: Array<string>, filepath: string): Promise<boolean> {
   const safepath = getSafePath(filepath, Infinity);
-  console.log(partFiles);
   if (partFiles.length === 1) {
     try {
       fs.renameSync(partFiles[0], safepath);
@@ -16,7 +15,6 @@ export async function mergeFiles(partFiles: Array<string>, filepath: string): Pr
       try {
         await pipeline(fs.createReadStream(path), fs.createWriteStream(safepath, { flags: 'a+' }));
       } catch (err) {
-        console.log(err);
         return false;
       }
     }
@@ -24,9 +22,8 @@ export async function mergeFiles(partFiles: Array<string>, filepath: string): Pr
   }
 }
 
-export async function deleteFiles(partFiles: Array<string>, metafile: string): Promise<boolean> {
+export async function deleteFiles(partFiles: Array<string>): Promise<boolean> {
   try {
-    fs.unlinkSync(metafile);
     for (const file of partFiles) {
       fs.unlinkSync(file);
     }
