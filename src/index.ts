@@ -1,3 +1,3 @@
-import { DownloadPart, PartOptions } from './DownloadPart';
+import { DownloadFile, Options } from './DownloadFile';
 
-export { DownloadPart, PartOptions };
+export { DownloadFile, Options };

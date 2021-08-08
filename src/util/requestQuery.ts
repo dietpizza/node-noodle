@@ -1,5 +1,5 @@
 import fetch, { Response } from 'node-fetch';
-import { Neofetch, neofetch } from './util/neofetch';
+import { Neofetch, neofetch } from './neofetch';
 
 export interface RequestMetadata {
   readonly acceptRanges: boolean;

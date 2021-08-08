@@ -3,13 +3,13 @@ let pSize: number;
 let pTime: number;
 let sampleSize: number = 8;
 
-export function getAvgSpeed(completed: number) {
+export function getAvgSpeed(size: number) {
   const time: number = Date.now();
   let speed: number = 0;
 
   if (pTime !== 0 && pSize !== 0) {
-    const deltaT = (time - pTime) / 1000;
-    const deltaC = completed - pSize;
+    const deltaT: number = (time - pTime) / 1000;
+    const deltaC: number = size - pSize;
     speed = deltaC / deltaT;
   }
 
@@ -18,7 +18,7 @@ export function getAvgSpeed(completed: number) {
   if (samples.length > 1) speed = samples.reduce((s, a) => s + a) / samples.length;
 
   pTime = time;
-  pSize = completed;
+  pSize = size;
 
   if (samples.length > sampleSize) samples.shift();
 

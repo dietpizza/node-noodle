@@ -6,6 +6,7 @@
     "sourceMap": false,
     "declaration": true,
     "outDir": "dist",
+    "preserveConstEnums": true,
     "rootDir": "src",
     // "strict": true,
     "esModuleInterop": true,

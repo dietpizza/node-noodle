@@ -5,9 +5,9 @@ import { Options } from '../DownloadFile';
 
 export function validateInputs(options: Options): string {
   if (!isURL(options.url)) return 'Invalid URL';
-  if (options.numOfConnections > 0) return 'Invalid number of threads';
-  if (!isDir(options.saveDirectory)) return 'Invalid directory path';
-  if (validFilename(options.fileName)) return 'Invalid file name';
+  if (options.threads < 0 || options.threads > 16) return 'Invalid number of threads';
+  if (!isDir(options.dir)) return 'Invalid directory path';
+  if (!validFilename(options.fileName)) return 'Invalid file name';
 
   return 'OK';
 }
