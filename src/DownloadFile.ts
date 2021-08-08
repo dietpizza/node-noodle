@@ -1,7 +1,5 @@
 import { EventEmitter } from 'eventemitter3';
 import { join } from 'path';
-import fs from 'fs';
-import fsp from 'fs/promises';
 import throttle from 'throttleit';
 
 import { DownloadPart, PartRange, PartOptions } from './DownloadPart';
