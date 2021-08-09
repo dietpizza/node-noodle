@@ -10,6 +10,7 @@ import { validateInputs } from './util/validation';
 import { getAvgSpeed } from './util/averageSpeed';
 import { mergeFiles, deleteFiles } from './util/mergeFiles';
 import { getSum } from './util/getSum';
+import { getThreads } from './util/getThreads';
 
 export enum Status {
   REMOVED = 'REMOVED',
@@ -49,7 +50,6 @@ export class DownloadFile extends EventEmitter {
   private readonly SINGLE_CONNECTION: number = 1;
   private THROTTLE_RATE: number = 100;
   private retryQueue: number[] = [];
-  // private metafile: string;
   private filepath: string;
   private info: DownloadInfo;
   private options: Options;
@@ -63,16 +63,23 @@ export class DownloadFile extends EventEmitter {
   }
 
   private ping(options: Options) {
-    options.fileName = options.fileName ? options.fileName : getFilename(options.url);
+    options.fileName = options.fileName || getFilename(options.url);
+    this.filepath = join(options.dir, options.fileName);
+    options.threads = getThreads(this.filepath) || options.threads;
+
     getMetadata(options.url, options.headers).then((metadata: RequestMetadata) => {
       if (!isNaN(metadata.contentLength)) {
         const valid: string = validateInputs(options);
 
-        if (!metadata.acceptRanges) this.options.threads = this.SINGLE_CONNECTION;
+        if (!metadata.acceptRanges) {
+          this.options.threads = this.SINGLE_CONNECTION;
+        }
 
         if (valid === 'OK') {
           this.init(metadata, options);
-        } else setImmediate(() => this.emit('error', valid));
+        } else {
+          setImmediate(() => this.emit('error', valid));
+        }
       } else {
         setImmediate(() => this.emit('error', 'Failed to get link'));
         this.connect = false;
@@ -81,9 +88,6 @@ export class DownloadFile extends EventEmitter {
   }
 
   private init(metadata: RequestMetadata, options: Options) {
-    this.filepath = join(options.dir, options.fileName);
-    // this.metafile = this.filepath + '.json';
-
     this.info = {
       url: options.url,
       dir: options.dir,

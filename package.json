@@ -1,7 +1,7 @@
 {
-  "name": "fetchloader",
+  "name": "noodle",
   "version": "0.0.1",
-  "description": "Speed up downloads with multiple concurrent connections!",
+  "description": "A multi-threaded download manager written the 'Node.js way'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
