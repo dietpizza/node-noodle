@@ -1,6 +1,7 @@
 import { EventEmitter } from 'eventemitter3';
 import { join } from 'path';
 import throttle from 'throttleit';
+import fs from 'fs';
 
 import { DownloadPart, PartRange, PartOptions } from './DownloadPart';
 import { getMetadata, RequestMetadata } from './util/requestQuery';
@@ -10,7 +11,6 @@ import { validateInputs } from './util/validation';
 import { getAvgSpeed } from './util/averageSpeed';
 import { mergeFiles, deleteFiles } from './util/mergeFiles';
 import { getSum } from './util/getSum';
-import { getThreads } from './util/getThreads';
 
 export enum Status {
   REMOVED = 'REMOVED',
@@ -57,16 +57,24 @@ export class DownloadFile extends EventEmitter {
 
   constructor(options: Options) {
     super();
+    options.fileName = options.fileName || getFilename(options.url);
+    // options.threads = getThreads(this.filepath) || options.threads;
+
     this.options = options;
     this.THROTTLE_RATE = options.throttleRate || this.THROTTLE_RATE;
-    this.ping(options);
+    this.filepath = join(options.dir, options.fileName);
+
+    const metafile = this.filepath + '.json';
+    if (fs.existsSync(metafile)) {
+      options = JSON.parse(fs.readFileSync(metafile, { encoding: 'utf8' }));
+    } else {
+      fs.writeFileSync(metafile, JSON.stringify(options), { encoding: 'utf8' });
+    }
+
+    this.query(options);
   }
 
-  private ping(options: Options) {
-    options.fileName = options.fileName || getFilename(options.url);
-    this.filepath = join(options.dir, options.fileName);
-    options.threads = getThreads(this.filepath) || options.threads;
-
+  private query(options: Options) {
     getMetadata(options.url, options.headers).then((metadata: RequestMetadata) => {
       if (!isNaN(metadata.contentLength)) {
         const valid: string = validateInputs(options);
@@ -113,7 +121,7 @@ export class DownloadFile extends EventEmitter {
         this.start_t();
       }
       if (!this.connect) clearInterval(checkExist);
-    }, 50);
+    }, 100);
     return this;
   }
 
@@ -138,7 +146,8 @@ export class DownloadFile extends EventEmitter {
         setImmediate(() => this.emit('done'));
       } else setImmediate(() => this.emit('error', 'Could not merge part files'));
 
-      deleteFiles(this.info.partFiles).then((gag: boolean) => {
+      const files: string[] = [...this.info.partFiles, this.filepath + '.json'];
+      deleteFiles(files).then((gag: boolean) => {
         if (!gag) setImmediate(() => this.emit('error', 'Could not delete part files'));
       });
     };
