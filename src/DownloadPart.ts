@@ -48,7 +48,7 @@ export class DownloadPart extends EventEmitter {
     return options.range;
   }
 
-  private download(options: PartOptions): void {
+  private download(options: PartOptions, flag?: boolean): void {
     const onStreamData = (length: number) => {
       downloaded += length;
       setImmediate(() => this.emit('data', this.fileSize + downloaded));
@@ -98,14 +98,30 @@ export class DownloadPart extends EventEmitter {
       });
       this.request.ready.then(fetchSuccess).catch(onError);
     } else {
-      setImmediate(() => this.emit('done'));
+      if (flag === undefined) {
+        setImmediate(() => {
+          this.emit('done');
+        });
+      }
     }
   }
 
   public pause() {
-    this.request.abort();
+    this.abort();
+    this.emit('paused');
   }
   public resume() {
-    this.download(this.options);
+    this.download(this.options, true);
+  }
+  public remove() {
+    this.abort();
+    fs.unlinkSync(this.options.path);
+    this.emit('removed');
+  }
+
+  public abort() {
+    if (this.request) {
+      this.request.abort();
+    }
   }
 }

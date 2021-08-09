@@ -9,6 +9,7 @@ import { getFilename } from './util/urlParser';
 import { validateInputs } from './util/validation';
 import { getAvgSpeed } from './util/averageSpeed';
 import { mergeFiles, deleteFiles } from './util/mergeFiles';
+import { getSum } from './util/getSum';
 
 export enum Status {
   REMOVED = 'REMOVED',
@@ -114,11 +115,11 @@ export class DownloadFile extends EventEmitter {
 
   private start_t() {
     let done: number = 0;
-    // let removed: number = 0;
+    let removed: number = 0;
 
     this.info.status = Status.ACTIVE;
     const update = () => {
-      this.info.downloaded = this.info.tPositions.reduce((s, a) => s + a);
+      this.info.downloaded = getSum(this.info.tPositions);
       this.info.speed = getAvgSpeed(this.info.downloaded);
       this.info.progress = (this.info.downloaded / this.info.size) * 100;
 
@@ -126,7 +127,7 @@ export class DownloadFile extends EventEmitter {
     };
     const update_t = throttle(update, this.THROTTLE_RATE);
 
-    const onMerge = (flag: boolean) => {
+    const onMergeDone = (flag: boolean) => {
       if (flag) {
         this.info.status = Status.DONE;
         update();
@@ -139,15 +140,22 @@ export class DownloadFile extends EventEmitter {
     };
 
     const onDone = () => {
-      if (this.retryQueue.length > 0)
+      if (this.retryQueue.length > 0) {
         setTimeout(() => {
           this.parts[this.retryQueue.shift()].resume();
         }, this.THROTTLE_RATE);
-
+      }
       if (++done === this.info.threads) {
         this.info.status = Status.BUILDING;
         update();
-        mergeFiles(this.info.partFiles, this.filepath).then(onMerge);
+        mergeFiles(this.info.partFiles, this.filepath).then(onMergeDone);
+      }
+    };
+
+    const onRemove = () => {
+      if (++removed === this.info.threads) {
+        this.info.status = Status.REMOVED;
+        update();
       }
     };
 
@@ -167,14 +175,33 @@ export class DownloadFile extends EventEmitter {
         })
 
         .on('retry', (size: number) => {
-          console.log(size);
           this.info.tPositions[index] = size;
           this.retryQueue.push(index);
         })
-
+        .on('removed', onRemove)
         .on('done', onDone);
     };
 
     this.parts = this.info.partRanges.map(mapParts);
+  }
+
+  public pause() {
+    this.parts.forEach((part: DownloadPart) => {
+      part.pause();
+    });
+    this.info.status = Status.PAUSED;
+  }
+
+  public resume() {
+    this.parts.forEach((part: DownloadPart) => {
+      part.resume();
+    });
+    this.info.status = Status.ACTIVE;
+  }
+
+  public remove() {
+    this.parts.forEach((part: DownloadPart) => {
+      part.remove();
+    });
   }
 }
