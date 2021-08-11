@@ -1,16 +1,16 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "target": "es6",
-    "noImplicitAny": false,
-    "sourceMap": false,
-    "declaration": true,
-    "outDir": "dist",
-    "preserveConstEnums": true,
-    "rootDir": "src",
-    // "strict": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "exclude": [".vscode", "node_modules", "dist"]
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es6",
+        "noImplicitAny": false,
+        "sourceMap": false,
+        "declaration": true,
+        "outDir": "dist",
+        "preserveConstEnums": true,
+        "rootDir": "src",
+        // "strict": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    "exclude": [".vscode", "node_modules", "dist"]
 }

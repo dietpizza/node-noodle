@@ -1,24 +1,24 @@
 {
-  "name": "noodle",
-  "version": "0.0.1",
-  "description": "A multi-threaded download manager written the 'Node.js way'",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "rm -rfv ./dist && tsc",
-    "watch": "tsc --watch"
-  },
-  "author": "Rohan Biswas",
-  "license": "MIT",
-  "dependencies": {
-    "eventemitter3": "^4.0.7",
-    "node-fetch": "^2.6.1",
-    "throttleit": "^1.0.0",
-    "valid-filename": "^3.1.0"
-  },
-  "devDependencies": {
-    "@types/node-fetch": "^2.5.12",
-    "@types/throttleit": "^1.0.0",
-    "typescript": "^4.3.5"
-  }
+    "name": "noodle",
+    "version": "0.0.1",
+    "description": "A multi-threaded download manager written the 'Node.js way'",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "rm -rfv ./dist && tsc",
+        "watch": "tsc --watch"
+    },
+    "author": "Rohan Biswas",
+    "license": "MIT",
+    "dependencies": {
+        "eventemitter3": "^4.0.7",
+        "node-fetch": "^2.6.1",
+        "throttleit": "^1.0.0",
+        "valid-filename": "^3.1.0"
+    },
+    "devDependencies": {
+        "@types/node-fetch": "^2.5.12",
+        "@types/throttleit": "^1.0.0",
+        "typescript": "^4.3.5"
+    }
 }
