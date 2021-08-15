@@ -33,7 +33,7 @@ export interface DownloadInfo {
     dir: string;
     filename: string;
     size: number;
-    status: string;
+    status: Status;
     progress: number;
     speed: number;
     threads: number;
@@ -56,7 +56,6 @@ export class DownloadFile extends EventEmitter {
     constructor(options: Options) {
         super();
         options.fileName = options.fileName || getFilename(options.url);
-        // options.threads = getThreads(this.filepath) || options.threads;
 
         this.options = options;
         this.THROTTLE_RATE = options.throttleRate || this.THROTTLE_RATE;
@@ -77,15 +76,10 @@ export class DownloadFile extends EventEmitter {
             if (!isNaN(metadata.contentLength)) {
                 const valid: string = validateInputs(options);
 
-                if (!metadata.acceptRanges) {
-                    this.options.threads = this.SINGLE_CONNECTION;
-                }
+                if (!metadata.acceptRanges) this.options.threads = this.SINGLE_CONNECTION;
 
-                if (valid === 'OK') {
-                    this.init(metadata, options);
-                } else {
-                    setImmediate(() => this.emit('error', valid));
-                }
+                if (valid === 'OK') this.init(metadata, options);
+                else setImmediate(() => this.emit('error', valid));
             } else {
                 setImmediate(() => this.emit('error', 'Failed to get link'));
                 this.connect = false;
@@ -116,14 +110,13 @@ export class DownloadFile extends EventEmitter {
         var checkExist = setInterval(() => {
             if (this.info !== undefined) {
                 clearInterval(checkExist);
-                this.start_t();
+                this.begin();
             }
             if (!this.connect) clearInterval(checkExist);
         }, this.THROTTLE_RATE / 2);
-        return this;
     }
 
-    private start_t() {
+    private begin() {
         let done: number = 0;
         let removed: number = 0;
 
