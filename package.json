@@ -1,5 +1,5 @@
 {
-    "name": "noodle",
+    "name": "@shatterball/noodle",
     "version": "0.0.1",
     "description": "A multi-threaded download manager written the 'Node.js way'",
     "main": "dist/index.js",
