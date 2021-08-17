@@ -2,6 +2,7 @@ import { EventEmitter } from 'eventemitter3';
 import { join } from 'path';
 import throttle from 'throttleit';
 import fs from 'fs';
+import { randomBytes } from 'crypto';
 
 import { DownloadPart, PartRange, PartOptions } from './DownloadPart';
 import { getMetadata, RequestMetadata, getFilename } from './util/requestQuery';
@@ -21,6 +22,7 @@ export enum Status {
 
 export interface Options {
     url: string;
+    key?: string;
     threads?: number;
     dir: string;
     fileName?: string;
@@ -29,6 +31,7 @@ export interface Options {
 }
 
 export interface DownloadInfo {
+    key: string;
     url: string;
     dir: string;
     filename: string;
@@ -56,6 +59,7 @@ export class DownloadFile extends EventEmitter {
     constructor(options: Options) {
         super();
         options.fileName = options.fileName || getFilename(options.url);
+        options.key = options.key || randomBytes(6).toString('hex');
 
         this.options = options;
         this.THROTTLE_RATE = options.throttleRate || this.THROTTLE_RATE;
@@ -89,6 +93,7 @@ export class DownloadFile extends EventEmitter {
 
     private init(metadata: RequestMetadata, options: Options) {
         this.info = {
+            key: options.key,
             url: options.url,
             dir: options.dir,
             progress: 0,

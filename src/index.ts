@@ -1,3 +1,3 @@
-import { DownloadFile, Options } from './DownloadFile';
+import { DownloadFile, Options, DownloadInfo, Status } from './DownloadFile';
 
-export { DownloadFile, Options };
+export { DownloadFile, Options, Status, DownloadInfo };
