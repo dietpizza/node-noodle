@@ -208,4 +208,8 @@ export class DownloadFile extends EventEmitter {
             part.remove();
         });
     }
+
+    public getData() {
+        return this.info;
+    }
 }
