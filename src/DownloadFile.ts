@@ -109,6 +109,7 @@ export class DownloadFile extends EventEmitter {
                 .fill(this.filepath)
                 .map((f: string, i: number) => f + '.' + i),
         };
+        this.emit('data', this.info);
     }
 
     public start() {
