@@ -30,13 +30,8 @@ export interface Options {
     throttleRate?: number;
 }
 
-export interface DownloadInfo {
-    key: string;
-    url: string;
-    dir: string;
-    filename: string;
+export interface Meta {
     size: number;
-    status: Status;
     progress: number;
     speed: number;
     threads: number;
@@ -44,6 +39,12 @@ export interface DownloadInfo {
     tPositions: number[];
     partRanges: PartRange[];
     partFiles: string[];
+}
+
+export interface DownloadInfo {
+    data: Options;
+    meta: Meta;
+    status: Status;
 }
 
 export class DownloadFile extends EventEmitter {
@@ -59,7 +60,6 @@ export class DownloadFile extends EventEmitter {
     constructor(options: Options) {
         super();
         options.fileName = options.fileName || getFilename(options.url);
-        options.key = options.key || randomBytes(6).toString('hex');
 
         this.options = options;
         this.THROTTLE_RATE = options.throttleRate || this.THROTTLE_RATE;
@@ -93,21 +93,20 @@ export class DownloadFile extends EventEmitter {
 
     private init(metadata: RequestMetadata, options: Options) {
         this.info = {
-            key: options.key,
-            url: options.url,
-            dir: options.dir,
-            progress: 0,
-            filename: options.fileName,
-            size: metadata.contentLength,
+            data: options,
+            meta: {
+                progress: 0,
+                size: metadata.contentLength,
+                speed: 0,
+                threads: options.threads,
+                downloaded: 0,
+                tPositions: Array(options.threads).fill(0),
+                partRanges: getPartRanges(metadata.contentLength, options.threads),
+                partFiles: Array(options.threads)
+                    .fill(this.filepath)
+                    .map((f: string, i: number) => f + '.' + i),
+            },
             status: Status.WAITING,
-            speed: 0,
-            threads: options.threads,
-            downloaded: 0,
-            tPositions: Array(options.threads).fill(0),
-            partRanges: getPartRanges(metadata.contentLength, options.threads),
-            partFiles: Array(options.threads)
-                .fill(this.filepath)
-                .map((f: string, i: number) => f + '.' + i),
         };
         this.emit('data', this.info);
     }
@@ -128,9 +127,12 @@ export class DownloadFile extends EventEmitter {
 
         this.info.status = Status.ACTIVE;
         const update = () => {
-            this.info.downloaded = this.info.tPositions.reduce((sum, current) => sum + current);
-            this.info.speed = getAvgSpeed(this.info.downloaded);
-            this.info.progress = (this.info.downloaded / this.info.size) * 100;
+            const speed = getAvgSpeed(this.info.meta.downloaded);
+            this.info.meta.downloaded = this.info.meta.tPositions.reduce(
+                (sum, current) => sum + current
+            );
+            this.info.meta.speed = isNaN(speed) ? 0 : speed;
+            this.info.meta.progress = (this.info.meta.downloaded / this.info.meta.size) * 100;
 
             setImmediate(() => this.emit('data', this.info));
         };
@@ -143,7 +145,7 @@ export class DownloadFile extends EventEmitter {
                 setImmediate(() => this.emit('done'));
             } else setImmediate(() => this.emit('error', 'Could not merge part files'));
 
-            const files: string[] = [...this.info.partFiles, this.filepath + '.json'];
+            const files: string[] = [...this.info.meta.partFiles, this.filepath + '.json'];
             deleteFiles(files).then((gag: boolean) => {
                 if (!gag) setImmediate(() => this.emit('error', 'Could not delete part files'));
             });
@@ -155,15 +157,15 @@ export class DownloadFile extends EventEmitter {
                     this.parts[this.retryQueue.shift()].resume();
                 }, this.THROTTLE_RATE);
             }
-            if (++done === this.info.threads) {
+            if (++done === this.info.meta.threads) {
                 this.info.status = Status.BUILDING;
                 update();
-                mergeFiles(this.info.partFiles, this.filepath).then(onMergeDone);
+                mergeFiles(this.info.meta.partFiles, this.filepath).then(onMergeDone);
             }
         };
 
         const onRemove = () => {
-            if (++removed === this.info.threads) {
+            if (++removed === this.info.meta.threads) {
                 this.info.status = Status.REMOVED;
                 update();
             }
@@ -172,7 +174,7 @@ export class DownloadFile extends EventEmitter {
         const mapParts = (range: PartRange, index: number) => {
             const options: PartOptions = {
                 url: this.options.url,
-                path: this.info.partFiles[index],
+                path: this.info.meta.partFiles[index],
                 range,
                 headers: this.options.headers,
             };
@@ -180,19 +182,19 @@ export class DownloadFile extends EventEmitter {
                 .on('error', (err) => setImmediate(() => this.emit('error', err)))
 
                 .on('data', (length: number) => {
-                    this.info.tPositions[index] = length;
+                    this.info.meta.tPositions[index] = length;
                     update_t();
                 })
 
                 .on('retry', (size: number) => {
-                    this.info.tPositions[index] = size;
+                    this.info.meta.tPositions[index] = size;
                     this.retryQueue.push(index);
                 })
                 .on('removed', onRemove)
                 .on('done', onDone);
         };
 
-        this.parts = this.info.partRanges.map(mapParts);
+        this.parts = this.info.meta.partRanges.map(mapParts);
     }
 
     public pause() {
